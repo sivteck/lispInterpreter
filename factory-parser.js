@@ -1,12 +1,29 @@
-exports.stringParser = stringParser
 exports.numParser = numberParser
 exports.expParser = expressionParser
 
-const Environment = {
+let Environment = {
   '+': (vals) => vals.reduce((x, y) => x + y, 0),
   '-': (vals) => vals.slice(1).reduce((x, y) => x - y, vals[0]),
   '*': (vals) => vals.reduce((x, y) => x * y, 1),
-  '/': (vals) => vals.reduce((x, y) => x / y, 1)
+  '/': (vals) => vals.reduce((x, y) => x / y, 1),
+  '>': (x, y) => x > y,
+  '<': (x, y) => x < y,
+  '>=': (x, y) => x >= y,
+  '<=': (x, y) => x <= y,
+  '===': (x, y) => x === y,
+  '!==': (x, y) => x !== y,
+  'abs': (x) => Math.abs(x),
+  'append': (x, y) => x.concat(y),
+  'apply': (func, args) => func(...args),
+  // 'begin':
+  'car': (x) => x[0],
+  'cdr': (x) => x.sllice(1),
+  'cons': (x, y) => [x].concat(y),
+  'eq?': (x, y) => x === y,
+  'expt': (x, y) => Math.pow(x, y),
+  'equal?': (x, y) => x === y,
+  'length': (x) => x.length
+  // 'list' : (
 }
 
 function isSigned (inp) {
@@ -164,99 +181,15 @@ function numberParser (s) {
   }
 }
 
-// isChar :: Char -> Parser Char
-function isChar (c) {
-  return function charParser (s) {
-    if (s[0] === c) return [c, s.slice(1)]
-    else return null
-  }
-}
-
-function hexParser (s) {
-  let fChar = s[0].charCodeAt()
-  if (((fChar >= 48) && (fChar <= 57)) || fChar >= 97 || fChar <= 102 || fChar >= 65 || fChar <= 70) { return [fChar, s.slice(1)] } else return null
-}
-
-function unicodeParser (s) {
-  if (s[0] === '\\') s = s.slice(1)
-  const unicodeParse = isChar('u')
-  let uPR = unicodeParse(s)
-  if (uPR === null) return null
-  for (let i = 0; i < 4; i++) {
-    if (hexParser(s.slice(i + 1)) != null) {
-      continue
-    } else return null
-  }
-  return [s.slice(0, 5), s.slice(5)]
-}
-
-function stringParser (s) {
-  const justQuoteP = isChar('"')
-  const quoteParser = isChar('"')
-  const rSolidusParser = isChar('\\')
-  const solidusParser = isChar('/')
-  const backspaceParser = isChar('b')
-  const formfeedParser = isChar('f')
-  const newlineParser = isChar('n')
-  const crParser = isChar('r')
-  const htabParser = isChar('t')
-
-  const specialParsers = [quoteParser, solidusParser, backspaceParser, formfeedParser, newlineParser, crParser, htabParser, unicodeParser, rSolidusParser]
-
-  function applyParsers (s) {
-    for (let i = 0; i < specialParsers.length; i++) {
-      let aresP = specialParsers[i](s)
-      if (aresP !== null) return aresP
-    }
-    return null
-  }
-
-  let parsed = ''
-  let ind = 0
-  let remainingString = s.slice(ind)
-  let quotesParsed = 0
-
-  if (ind === 0) {
-    let initC = justQuoteP(s)
-    if (initC === null) {
-      return null
+function parseKeywords (s) {
+  let keys = Object.keys(Environment)
+  for (let i = 0; i < keys.length; i++) {
+    if (s.startsWith(keys[i])) {
+      console.log(Environment[keys[i]])
+      return [Environment[keys[i]], s.slice(keys[i].length)]
     }
   }
-  quotesParsed++
-  ind++
-  let flagQ = 0
-
-  while (true) {
-    remainingString = s.slice(ind)
-    if (quotesParsed === 2) {
-      if (flagQ === 1) flagQ -= 1
-      else return [parsed, remainingString]
-    }
-    let iniC = remainingString[0]
-    // Handle special characters that are not escaped
-    if (iniC === '\n' || iniC === '\t' || iniC === '\r' || iniC === '\f' || iniC === '\b' || iniC === '\b') return null
-    let checkBackslash = rSolidusParser(remainingString)
-    if (checkBackslash !== null) {
-      let resP = applyParsers(remainingString.slice(1))
-      flagQ = 1
-      if (resP === null) return null
-      else {
-        // parsed += checkBackslash[0]
-        parsed += resP[0]
-        remainingString = resP[1]
-        if (resP[0].length > 1) ind += (resP[0].length + 1)
-        else ind += 2
-        if (quotesParsed === 2) quotesParsed -= 1
-      }
-    } else flagQ = 0
-
-    let qRes = justQuoteP(remainingString)
-    if (qRes !== null) {
-      quotesParsed++
-    }
-    ind++
-    if (qRes === null && remainingString.length !== 0) parsed += remainingString[0]
-  }
+  return null
 }
 
 function expressionParser (s) {
@@ -264,7 +197,10 @@ function expressionParser (s) {
   s = s.slice(1)
   let valList = []
   s = consumeSpaces(s)
-  let func = Environment[s[0]]
+  let respKW = parseKeywords(s)
+  if (respKW === null) return null
+  let func = respKW[0]
+  s = respKW[1]
   s = s.slice(1)
   while (true) {
     s = consumeSpaces(s)
