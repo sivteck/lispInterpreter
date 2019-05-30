@@ -5,7 +5,8 @@ exports.expParser = expressionParser
 const Environment = {
   '+': (vals) => vals.reduce((x, y) => x + y, 0),
   '-': (vals) => vals.slice(1).reduce((x, y) => x - y, vals[0]),
-  '*': (vals) => vals.reduce((x, y) => x * y, 1)
+  '*': (vals) => vals.reduce((x, y) => x * y, 1),
+  '/': (vals) => vals.reduce((x, y) => x / y, 1)
 }
 
 function isSigned (inp) {
@@ -285,4 +286,4 @@ function expressionParser (s) {
       s = remS
     }
   }
-
+}
