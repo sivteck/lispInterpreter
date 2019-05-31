@@ -2,10 +2,10 @@ exports.numParser = numberParser
 exports.expParser = expressionParser
 
 let Environment = {
-  '+': (vals) => vals.reduce((x, y) => x + y, 0),
-  '-': (vals) => vals.slice(1).reduce((x, y) => x - y, vals[0]),
-  '*': (vals) => vals.reduce((x, y) => x * y, 1),
-  '/': (vals) => vals.reduce((x, y) => x / y, 1),
+  '+': (...vals) => vals.reduce((x, y) => x + y, 0),
+  '-': (...vals) => vals.slice(1).reduce((x, y) => x - y, vals[0]),
+  '*': (...vals) => vals.reduce((x, y) => x * y, 1),
+  '/': (...vals) => vals.reduce((x, y) => x / y, 1),
   '>': (x, y) => x > y,
   '<': (x, y) => x < y,
   '>=': (x, y) => x >= y,
@@ -217,36 +217,55 @@ function expressionParser (s) {
   if (s[0] !== '(') return null
   let valList = []
   s = consumeSpaces(s.slice(1))
-  let respKW = parseKeywords(s)
-  if (respKW === null) return null
-  let func = respKW[0]
-  s = respKW[1].slice(1)
-  while (true) {
-    s = consumeSpaces(s)
-    if (s[0] === ')') return [func(valList), s.slice(1)]
-    if (s[0] === '(') {
-      let resExp = expressionParser(s)
-      if (resExp === null) return null
-      else {
-        valList.push(resExp[0])
-        s = resExp[1]
+  if (s.startsWith('define')) {
+    s = s.slice(6)
+    updateEnv(6)
+  } else {
+    let respKW = parseKeywords(s)
+    if (respKW === null) return null
+    var func = respKW[0]
+    s = respKW[1].slice(1)
+    while (true) {
+      s = consumeSpaces(s)
+      if (s[0] === ')') return [func(...valList), s.slice(1)]
+      if (s[0] === '(') {
+        let resExp = expressionParser(s)
+        if (resExp === null) return null
+        else {
+          valList.push(resExp[0])
+          s = resExp[1]
+        }
       }
-    }
-    s = consumeSpaces(s)
-    let resP = numOrSymParser(s)
-    if (resP !== null) {
-      valList.push(resP[0])
-      s = resP[1]
+      s = consumeSpaces(s)
+      let resP = numOrSymParser(s)
+      if (resP !== null) {
+        if (resP[0] === 'define') {
+          s = updateEnv(s)
+          if (s === null) return null
+        } else {
+          valList.push(resP[0])
+          s = resP[1]
+        }
+      }
     }
   }
 }
 
 function numOrSymParser (s) {
-  let resNP = numberParser(s)
-  if (resNP !== null) return resNP
-  else {
-    let resPS = parseSymbol(s)
-    if (resPS !== null) return resPS
+  return numberParser(s) || parseSymbol(s)
+}
+
+function updateEnv (s) {
+  s = consumeSpaces(s)
+  let resPS = parseSymbol(s)
+  if (resPS !== null) {
+    let [v, remS] = resPS
+    let resNP = numberParser(consumeSpaces(remS))
+    if (resNP !== null) {
+      let [vn, remSn] = resNP
+      Environment[v] = vn
+      return remSn
+    }
   }
   return null
 }
