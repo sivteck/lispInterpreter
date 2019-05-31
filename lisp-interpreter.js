@@ -10,6 +10,12 @@ let rl = readline.createInterface({ input: process.stdin,
   output: process.stdout,
   terminal: false })
 
+function evalLisp (s) {
+  let resPL = parseExp(s)
+  if (resPL !== null) return resPL[0]
+  else return null
+}
+
 rl.on('line', function (line) {
-  if (line.length !== 0) console.log(parseExp(line))
+  if (line.length !== 0) console.log(evalLisp(line))
 })

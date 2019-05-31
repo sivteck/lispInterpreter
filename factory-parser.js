@@ -15,15 +15,26 @@ let Environment = {
   'abs': (x) => Math.abs(x),
   'append': (x, y) => x.concat(y),
   'apply': (func, args) => func(...args),
-  // 'begin':
+  'begin': (...args) => args[args.length - 1],
   'car': (x) => x[0],
-  'cdr': (x) => x.sllice(1),
+  'cdr': (x) => x.slice(1),
   'cons': (x, y) => [x].concat(y),
   'eq?': (x, y) => x === y,
   'expt': (x, y) => Math.pow(x, y),
   'equal?': (x, y) => x === y,
-  'length': (x) => x.length
-  // 'list' : (
+  'length': (x) => x.length,
+  'list': (...x) => x,
+  'list?': (x) => Array.isArray(x),
+  // 'map':
+  // 'max':
+  // 'min':
+  'not': (x) => !(x),
+  'null?': (x) => x === null,
+  'number?': (x) => (typeof x) === 'number',
+  'print': (x) => console.log(x[0]),
+  // 'procedure?':
+  'round': Math.round(),
+  'symbol?': (x) => (typeof x) === 'string'
 }
 
 function isSigned (inp) {
@@ -121,7 +132,6 @@ function consumeSpaces (s) {
 
 function numberParser (s) {
   let state = new Array(initFuncs.length).fill(null)
-
   let parsed = ''
   let ind = 0
   let remainingString = s.slice(ind)
@@ -185,23 +195,32 @@ function parseKeywords (s) {
   let keys = Object.keys(Environment)
   for (let i = 0; i < keys.length; i++) {
     if (s.startsWith(keys[i])) {
-      console.log(Environment[keys[i]])
       return [Environment[keys[i]], s.slice(keys[i].length)]
     }
   }
   return null
 }
 
+function parseSymbol (s) {
+  let resSymbol = ''
+  let remS = s
+  while (true) {
+    if (remS[0] === ' ' || remS[0] === ')') break
+    resSymbol += remS[0]
+    remS = remS.slice(1)
+  }
+  if (resSymbol.length !== 0) return [resSymbol, remS]
+  else return null
+}
+
 function expressionParser (s) {
   if (s[0] !== '(') return null
-  s = s.slice(1)
   let valList = []
-  s = consumeSpaces(s)
+  s = consumeSpaces(s.slice(1))
   let respKW = parseKeywords(s)
   if (respKW === null) return null
   let func = respKW[0]
-  s = respKW[1]
-  s = s.slice(1)
+  s = respKW[1].slice(1)
   while (true) {
     s = consumeSpaces(s)
     if (s[0] === ')') return [func(valList), s.slice(1)]
@@ -214,12 +233,20 @@ function expressionParser (s) {
       }
     }
     s = consumeSpaces(s)
-    let resP = numberParser(s)
+    let resP = numOrSymParser(s)
     if (resP !== null) {
-      let [v, remS] = resP
-      valList.push(v)
-      console.log(valList)
-      s = remS
+      valList.push(resP[0])
+      s = resP[1]
     }
   }
+}
+
+function numOrSymParser (s) {
+  let resNP = numberParser(s)
+  if (resNP !== null) return resNP
+  else {
+    let resPS = parseSymbol(s)
+    if (resPS !== null) return resPS
+  }
+  return null
 }
