@@ -219,12 +219,12 @@ function expressionParser (s) {
   s = consumeSpaces(s.slice(1))
   if (s.startsWith('define')) {
     s = s.slice(6)
-    updateEnv(6)
+    updateEnv(s)
   } else {
     let respKW = parseKeywords(s)
     if (respKW === null) return null
-    var func = respKW[0]
-    s = respKW[1].slice(1)
+    let func = respKW[0]
+    s = respKW[1]
     while (true) {
       s = consumeSpaces(s)
       if (s[0] === ')') return [func(...valList), s.slice(1)]

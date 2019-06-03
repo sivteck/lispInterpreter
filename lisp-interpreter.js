@@ -12,7 +12,7 @@ let rl = readline.createInterface({ input: process.stdin,
 
 function evalLisp (s) {
   let resPL = parseExp(s)
-  if (resPL !== null) return resPL[0]
+  if (resPL) return resPL[0]
   else return null
 }
 
