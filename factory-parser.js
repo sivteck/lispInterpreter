@@ -1,7 +1,8 @@
-exports.numParser = numberParser
-exports.expParser = expressionParser
+// exports.numParser = numberParser
+// exports.expParser = expressionParser
 
 let Environment = {
+  'pi': 3.14,
   '+': (...vals) => vals.reduce((x, y) => x + y, 0),
   '-': (...vals) => vals.slice(1).reduce((x, y) => x - y, vals[0]),
   '*': (...vals) => vals.reduce((x, y) => x * y, 1),
@@ -227,6 +228,9 @@ function expressionParser (s) {
     let func = respKW[0]
     s = respKW[1]
     while (true) {
+      console.log('---========From expressionParser() ==============---')
+      console.log(s)
+      console.log(func(valList))
       s = consumeSpaces(s)
       if (s[0] === ')') return [func(...valList), s.slice(1)]
       if (s[0] === '(') {
@@ -239,7 +243,6 @@ function expressionParser (s) {
       }
       s = consumeSpaces(s)
       let resP = numOrSymParser(s)
-      console.log(resP)
       if (resP !== null) {
         if (resP[0] === 'define') {
           s = updateEnv(s)
@@ -270,5 +273,54 @@ function updateEnv (s) {
       return remSn
     }
   }
+  return null
+}
+
+let evalOps = [defineOp, ifOp, quoteOp, setOp]
+
+function evalExp (s) {
+  if (s[0] !== '(') return null
+  else s = s.slice(1)
+  let result = []
+  if (s[0] === ')') return [result, s.slice(1)]
+  s = ifOp(s)
+  console.log(s)
+}
+
+function defineOp (s) {
+  if (s.startsWith('define')) {
+    s = s.slice(6)
+    s = updateEnv(s)
+    return [[], s]
+  }
+}
+
+function ifOp (s) {
+  if (!(s.startsWith('if'))) return null
+  s = consumeSpaces(s.slice(2))
+  let evalCondition = expressionParser(s)
+  console.log('=========from ifOp()===========')
+  console.log(s)
+  console.log(evalCondition)
+  if (evalCondition !== null) {
+    let [v, remS] = evalCondition
+    remS = consumeSpaces(remS)
+    let evalSucc = expressionParser(remS)
+    if (v) {
+      let [_, remS2] = expressionParser(consumeSpaces(evalSucc[1]))
+      return [evalSucc[0], remS2]
+    } else return expressionParser(consumeSpaces(evalSucc[1]))
+  }
+}
+
+function quoteOp (s) {
+  return null
+}
+
+function setOp (s) {
+  return null
+}
+
+function lambdaOp (s) {
   return null
 }
