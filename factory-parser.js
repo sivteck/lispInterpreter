@@ -209,6 +209,7 @@ function parseSymbol (s) {
     resSymbol += remS[0]
     remS = remS.slice(1)
   }
+  if (resSymbol in Environment) resSymbol = Environment[resSymbol]
   if (resSymbol.length !== 0) return [resSymbol, remS]
   else return null
 }
@@ -219,7 +220,7 @@ function expressionParser (s) {
   s = consumeSpaces(s.slice(1))
   if (s.startsWith('define')) {
     s = s.slice(6)
-    updateEnv(s)
+    s = updateEnv(s)
   } else {
     let respKW = parseKeywords(s)
     if (respKW === null) return null
@@ -238,6 +239,7 @@ function expressionParser (s) {
       }
       s = consumeSpaces(s)
       let resP = numOrSymParser(s)
+      console.log(resP)
       if (resP !== null) {
         if (resP[0] === 'define') {
           s = updateEnv(s)
@@ -249,6 +251,7 @@ function expressionParser (s) {
       }
     }
   }
+  s = s.slice(1)
 }
 
 function numOrSymParser (s) {
