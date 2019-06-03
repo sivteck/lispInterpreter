@@ -39,49 +39,40 @@ let Environment = {
 }
 
 function isSigned (inp) {
-  if (inp[0] === '-' || inp[0] === '+') {
-    return [inp[0], inp.slice(1)]
-  } else return null
+  if (!(inp[0] === '-' || inp[0] === '+')) return null
+  else return [inp[0], inp.slice(1)]
 }
 
 function isNegative (inp) {
-  if (inp[0] === '-') {
-    return [inp[0], inp.slice(1)]
-  } else return null
+  if (!(inp[0] === '-')) return null
+  else return [inp[0], inp.slice(1)]
 }
 
 function isDigit (inp) {
   if (inp[0] === undefined) return null
   let codeC = inp[0].charCodeAt()
-  if ((codeC >= 48) && (codeC <= 57)) {
-    return [inp[0], inp.slice(1)]
-  } else return null
+  if (!((codeC >= 48) && (codeC <= 57))) return null
+  else return [inp[0], inp.slice(1)]
 }
 
 function isDecimalPoint (inp) {
   if (inp[0] === undefined) return null
   let codeC = inp[0]
-  if (codeC === '.') {
-    return [codeC, inp.slice(1)]
-  } else return null
+  if (!(codeC === '.')) return null
+  else return [codeC, inp.slice(1)]
 }
 
 function isExponential (inp) {
-  if (inp[0] === 'E' || inp[0] === 'e') {
-    return [inp[0], inp.slice(1)]
-  } else return null
+  if (!(inp[0] === 'E' || inp[0] === 'e')) return null
+  else return [inp[0], inp.slice(1)]
 }
 
 function isZero (inp) {
-  if (inp[0] === '0') {
-    return [inp[0], inp.slice(1)]
-  }
-  return null
+  if (!(inp[0] === '0')) return null
+  else return [inp[0], inp.slice(1)]
 }
 
-function returnsNull (inp) {
-  return null
-}
+const returnsNull = (s) => null
 
 // Transition Functions
 const initFuncs = [isNegative, isZero, isDigit, returnsNull, returnsNull]
@@ -108,18 +99,14 @@ function pickFuncs (currState, loc) {
   if (loc === 0) return initFuncs
 
   for (let i = 0; i < currState.length; i++) {
-    if (currState[i] !== null) {
-      return afterFuncs[i]
-    }
+    if (currState[i] !== null) return afterFuncs[i]
   }
   return null
 }
 
 function getResult (arrR) {
   for (let i = 0; i < arrR.length; i++) {
-    if (arrR[i] != null) {
-      return arrR[i]
-    }
+    if (arrR[i] != null) return arrR[i]
   }
   return null
 }
@@ -168,9 +155,8 @@ function numberParser (s) {
     if (isSigned(remainingString)) signParsed++
     // Handle recurring "." and decimal after "E/e"
     if (isDecimalPoint(remainingString)) {
-      if (expParsed > 0) {
-        decimalPointsParsed += 2
-      } else decimalPointsParsed++
+      if (expParsed > 0) decimalPointsParsed += 2
+      else decimalPointsParsed++
     }
     // Handle starting zeroes
     if (startZeroesParsed > 0 && (decimalPointsParsed === 0)) {
@@ -219,18 +205,13 @@ function expressionParser (s) {
   if (s[0] !== '(') return null
   let valList = []
   s = consumeSpaces(s.slice(1))
-  if (s.startsWith('define')) {
-    s = s.slice(6)
-    s = updateEnv(s, 0)
-  } else {
+  if (s.startsWith('define')) s = updateEnv(s.slice(6), 0)
+  else {
     let respKW = parseKeywords(s)
     if (respKW === null) return null
     let func = respKW[0]
     s = respKW[1]
     while (true) {
-      console.log('---========From expressionParser() ==============---')
-      console.log(s)
-      console.log(func(valList))
       s = consumeSpaces(s)
       if (s[0] === ')') return [func(...valList), s.slice(1)]
       if (s[0] === '(') {
@@ -262,8 +243,6 @@ function numOrSymParser (s) {
 }
 
 function updateEnv (s, set) {
-  console.log('===========From updateEnv()=========')
-  console.log(s)
   s = consumeSpaces(s)
   let resPS = parseSymbol(s, set)
   if (resPS !== null) {
@@ -284,6 +263,7 @@ function updateEnv (s, set) {
 
 let evalOps = [defineOp, ifOp, quoteOp, setOp]
 
+// TODO: integrate all ops/exps
 function evalExp (s) {
   if (s[0] !== '(') return null
   else s = s.slice(1)
@@ -331,5 +311,5 @@ function setOp (s) {
 }
 
 function lambdaOp (s) {
-  return null
+  if (!(s.startsWith('lambda'))) return null
 }
