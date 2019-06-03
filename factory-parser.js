@@ -202,7 +202,7 @@ function parseKeywords (s) {
   return null
 }
 
-function parseSymbol (s) {
+function parseSymbol (s, set) {
   let resSymbol = ''
   let remS = s
   while (true) {
@@ -210,7 +210,7 @@ function parseSymbol (s) {
     resSymbol += remS[0]
     remS = remS.slice(1)
   }
-  if (resSymbol in Environment) resSymbol = Environment[resSymbol]
+  if (resSymbol in Environment && set !== 1) resSymbol = Environment[resSymbol]
   if (resSymbol.length !== 0) return [resSymbol, remS]
   else return null
 }
@@ -221,7 +221,7 @@ function expressionParser (s) {
   s = consumeSpaces(s.slice(1))
   if (s.startsWith('define')) {
     s = s.slice(6)
-    s = updateEnv(s)
+    s = updateEnv(s, 0)
   } else {
     let respKW = parseKeywords(s)
     if (respKW === null) return null
@@ -245,7 +245,7 @@ function expressionParser (s) {
       let resP = numOrSymParser(s)
       if (resP !== null) {
         if (resP[0] === 'define') {
-          s = updateEnv(s)
+          s = updateEnv(s, 0)
           if (s === null) return null
         } else {
           valList.push(resP[0])
@@ -261,11 +261,17 @@ function numOrSymParser (s) {
   return numberParser(s) || parseSymbol(s)
 }
 
-function updateEnv (s) {
+function updateEnv (s, set) {
+  console.log('===========From updateEnv()=========')
+  console.log(s)
   s = consumeSpaces(s)
-  let resPS = parseSymbol(s)
+  let resPS = parseSymbol(s, set)
   if (resPS !== null) {
     let [v, remS] = resPS
+    if (set === 1) {
+      console.log(v)
+      if (!(v in Environment)) return null
+    }
     let resNP = numberParser(consumeSpaces(remS))
     if (resNP !== null) {
       let [vn, remSn] = resNP
@@ -283,25 +289,22 @@ function evalExp (s) {
   else s = s.slice(1)
   let result = []
   if (s[0] === ')') return [result, s.slice(1)]
-  s = ifOp(s)
+  s = setOp(s)
   console.log(s)
 }
 
 function defineOp (s) {
-  if (s.startsWith('define')) {
-    s = s.slice(6)
-    s = updateEnv(s)
-    return [[], s]
-  }
+  if (!(s.startsWith('define'))) return null
+  s = s.slice(6)
+  s = updateEnv(s)
+  if (s !== null) return [[], s]
+  else return s
 }
 
 function ifOp (s) {
   if (!(s.startsWith('if'))) return null
   s = consumeSpaces(s.slice(2))
   let evalCondition = expressionParser(s)
-  console.log('=========from ifOp()===========')
-  console.log(s)
-  console.log(evalCondition)
   if (evalCondition !== null) {
     let [v, remS] = evalCondition
     remS = consumeSpaces(remS)
@@ -310,15 +313,21 @@ function ifOp (s) {
       let [_, remS2] = expressionParser(consumeSpaces(evalSucc[1]))
       return [evalSucc[0], remS2]
     } else return expressionParser(consumeSpaces(evalSucc[1]))
-  }
+  } else return null
 }
 
+// TODO: Fix quoteOp to return unevaluated exp
 function quoteOp (s) {
-  return null
+  if (!(s.startsWith('quote'))) return null
+  s = consumeSpaces(s.slice(5))
+  return expressionParser(s)
 }
 
 function setOp (s) {
-  return null
+  if (!(s.startsWith('set!'))) return null
+  s = consumeSpaces(s.slice(4))
+  s = updateEnv(s, 1)
+  return s
 }
 
 function lambdaOp (s) {
