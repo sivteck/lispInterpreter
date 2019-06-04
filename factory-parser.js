@@ -1,6 +1,8 @@
 // exports.numParser = numberParser
 // exports.expParser = expressionParser
 
+let env = {}
+
 let Environment = {
   'pi': 3.14,
   '+': (...vals) => vals.reduce((x, y) => x + y, 0),
@@ -35,7 +37,8 @@ let Environment = {
   'print': (x) => console.log(x[0]),
   // 'procedure?':
   'round': Math.round(),
-  'symbol?': (x) => (typeof x) === 'string'
+  'symbol?': (x) => (typeof x) === 'string',
+  'innerEnv': env
 }
 
 function isSigned (inp) {
@@ -300,7 +303,27 @@ function ifOp (s) {
 function quoteOp (s) {
   if (!(s.startsWith('quote'))) return null
   s = consumeSpaces(s.slice(5))
-  return expressionParser(s)
+  return extractExp(expressionParser(s))
+}
+
+function extractExp (s) {
+  if (s[0] !== '(') return null
+  let exp = '('
+  s = consumeSpaces(s.slice(1))
+  while (true) {
+    if (s[0] === ')') return [exp.concat(')'), s.slice(1)]
+    if (s === '') return null
+    if (s[0] === '(') {
+      let eExp = extractExp(s)
+      if (eExp !== null) {
+        exp += eExp[0]
+        s = eExp[1]
+      }
+    } else {
+      exp += s[0]
+      s = s.slice(1)
+    }
+  }
 }
 
 function setOp (s) {
