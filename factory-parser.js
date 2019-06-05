@@ -1,7 +1,7 @@
 // exports.numParser = numberParser
 // exports.expParser = expressionParser
 
-let env = {}
+const env = {}
 
 let Environment = {
   'pi': 3.14,
@@ -195,7 +195,7 @@ function parseSymbol (s, set) {
   let resSymbol = ''
   let remS = s
   while (true) {
-    if (remS[0] === ' ' || remS[0] === ')') break
+    if (remS[0] === ' ' || remS[0] === ')' || remS[0] === ')') break
     resSymbol += remS[0]
     remS = remS.slice(1)
   }
@@ -248,17 +248,25 @@ function numOrSymParser (s) {
 function updateEnv (s, set) {
   s = consumeSpaces(s)
   let resPS = parseSymbol(s, set)
+  console.log('============From updateEnv resPS==========')
+  console.log(resPS)
   if (resPS !== null) {
     let [v, remS] = resPS
-    if (set === 1) {
-      console.log(v)
-      if (!(v in Environment)) return null
-    }
+    if (set === 1) if (!(v in Environment)) return null
     let resNP = numberParser(consumeSpaces(remS))
+    console.log('------------From updateEnv resNP----------')
+    console.log(resNP)
     if (resNP !== null) {
       let [vn, remSn] = resNP
       Environment[v] = vn
       return remSn
+    } else {
+      let proc = extractExp(consumeSpaces(remS))
+      console.log('-----------From updateEnv proc---------')
+      console.log(proc)
+      if (proc === null) return null
+      Environment[v] = proc[0]
+      return [[], proc[1]]
     }
   }
   return null
@@ -272,13 +280,16 @@ function evalExp (s) {
   else s = s.slice(1)
   let result = []
   if (s[0] === ')') return [result, s.slice(1)]
-  s = setOp(s)
+  s = defineOp(s)
+  console.log('================From evalExp=============')
   console.log(s)
 }
 
 function defineOp (s) {
   if (!(s.startsWith('define'))) return null
   s = s.slice(6)
+  console.log('---------------From defineOp()------------------')
+  console.log(s)
   s = updateEnv(s)
   if (s !== null) return [[], s]
   else return s
@@ -299,7 +310,6 @@ function ifOp (s) {
   } else return null
 }
 
-// TODO: Fix quoteOp to return unevaluated exp
 function quoteOp (s) {
   if (!(s.startsWith('quote'))) return null
   s = consumeSpaces(s.slice(5))
@@ -310,12 +320,17 @@ function extractExp (s) {
   if (s[0] !== '(') return null
   let exp = '('
   s = consumeSpaces(s.slice(1))
+  if (s.startsWith('lambda')) return lambdaOp(s)
+  if (!(s.startsWith('lambda'))) {
+    lambdaOp(s)
+  }
   while (true) {
     if (s[0] === ')') return [exp.concat(')'), s.slice(1)]
     if (s === '') return null
     if (s[0] === '(') {
       let eExp = extractExp(s)
-      if (eExp !== null) {
+      if (eExp === null) return null
+      else if (eExp !== null) {
         exp += eExp[0]
         s = eExp[1]
       }
@@ -335,4 +350,47 @@ function setOp (s) {
 
 function lambdaOp (s) {
   if (!(s.startsWith('lambda'))) return null
+  console.log('===========From lambdaop==============')
+  let variables = (extractExp(consumeSpaces(s.slice(6))))
+  if (variables !== null) {
+    let lExpression = (extractExp(consumeSpaces(variables[1])))
+    console.log(lExpression)
+    if (lExpression !== null) {
+      console.log([[variables[0], lExpression[0]], lExpression[1]])
+      return [[variables[0], lExpression[0]], lExpression[1]]
+    }
+  }
+  return null
+}
+
+function getParamName (s) {
+  let resSymbol = ''
+  let remS = s
+  while (true) {
+    if (remS[0] === ' ' || remS[0] === ')' || remS[0] === ')') break
+    resSymbol += remS[0]
+    remS = remS.slice(1)
+  }
+  return [resSymbol, remS]
+}
+
+function paramList (s) {
+  if (s[0] !== '(') return null
+  s = s.slice(1)
+  let paramL = []
+  while (true) {
+    if (s[0] === ')') return [paramL, s.slice(1)]
+    let resGAN = getParamName(consumeSpaces(s))
+    if (resGAN === null) return [paramL, s]
+    paramL.push(resGAN[0])
+    s = resGAN[1]
+  }
+}
+
+function argValues (s) {
+
+}
+
+function localEnv (argL, argV) {
+
 }
