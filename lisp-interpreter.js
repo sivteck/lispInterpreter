@@ -6,9 +6,11 @@ const parseExp = parsers.expParser
 const repl = s => console.log(s)
 
 let readline = require('readline')
-let rl = readline.createInterface({ input: process.stdin,
+let rl = readline.createInterface({
+  input: process.stdin,
   output: process.stdout,
-  terminal: false })
+  terminal: false
+})
 
 function evalLisp (s) {
   let resPL = parseExp(s)
