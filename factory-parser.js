@@ -181,6 +181,18 @@ function numberParser (s) {
   }
 }
 
+// TODO: integrate all ops/exps
+function evalExp (s) {
+  if (s[0] !== '(') return null
+  else s = s.slice(1)
+  let result = []
+  if (s[0] === ')') return [result, s.slice(1)]
+  if (s.startsWith('define ')) s = defineOp(s)
+  else expressionParser('(' + s)
+  console.log('================From evalExp=============')
+  console.log(s)
+}
+
 function parseKeywords (s) {
   let keys = Object.keys(Environment)
   for (let i = 0; i < keys.length; i++) {
@@ -274,17 +286,6 @@ function updateEnv (s, set) {
 
 let evalOps = [defineOp, ifOp, quoteOp, setOp]
 
-// TODO: integrate all ops/exps
-function evalExp (s) {
-  if (s[0] !== '(') return null
-  else s = s.slice(1)
-  let result = []
-  if (s[0] === ')') return [result, s.slice(1)]
-  s = defineOp(s)
-  console.log('================From evalExp=============')
-  console.log(s)
-}
-
 function defineOp (s) {
   if (!(s.startsWith('define'))) return null
   s = s.slice(6)
@@ -356,8 +357,8 @@ function lambdaOp (s) {
     let lExpression = (extractExp(consumeSpaces(variables[1])))
     console.log(lExpression)
     if (lExpression !== null) {
-      console.log([[variables[0], lExpression[0]], lExpression[1]])
-      return [[variables[0], lExpression[0]], lExpression[1]]
+      console.dir([[paramList(variables[0])[0], lExpression[0]], lExpression[1]], { 'depth': null })
+      return [[paramList(variables[0])[0], lExpression[0]], lExpression[1]]
     }
   }
   return null
@@ -393,4 +394,10 @@ function argValues (s) {
 
 function localEnv (argL, argV) {
 
+}
+
+function procedure () {
+  this.env = {}
+  this.params = {}
+  this.expression = {}
 }
