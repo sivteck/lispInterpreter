@@ -177,4 +177,95 @@ function numberParser (s) {
   }
 }
 
+function parseSymbol (s, set = 0) {
+  let resSymbol = ''
+  let remS = s
+  while (true) {
+    if (remS[0] === ' ' || remS[0] === ')' || remS[0] === ')') break
+    if (remS.length === 0) return null
+    resSymbol += remS[0]
+    remS = remS.slice(1)
+  }
+  // if (resSymbol in Environment && set !== 1) resSymbol = Environment[resSymbol]
+  if (resSymbol.length !== 0) return [resSymbol, remS]
+  else return null
+}
 
+function extractExp (s) {
+  if (s[0] !== '(') return null
+  let exp = '('
+  s = consumeSpaces(s.slice(1))
+  while (true) {
+    if (s[0] === ')') return [exp.concat(')'), s.slice(1)]
+    if (s === '') return null
+    if (s[0] === '(') {
+      let eExp = extractExp(s)
+      if (eExp === null) return null
+      else if (eExp !== null) {
+        exp += eExp[0]
+        s = eExp[1]
+      }
+    } else {
+      exp += s[0]
+      s = s.slice(1)
+    }
+  }
+}
+
+function atomize (s) {
+  var atoms = []
+  let res = numberParser(s) || parseSymbol(s)
+  s = s.slice(res[0].length).trimStart()
+  atoms.push(res[0])
+  while (res) {
+    res = numberParser(s) || parseSymbol(s)
+    if (res !== null) s = res[1].trimStart()
+    else break
+    atoms.push(res[0])
+    console.log('===========from atomize()=========')
+    console.log(res[1])
+    if (res[1][0] === '(') {
+      let res = extractExp(s)
+      if (res !== null) {
+        atoms.push(res[0])
+        s = res[1]
+      } else return null
+    }
+    if (res[1][0] !== ' ' || res[1][0] === ')') break
+  }
+  if (s[0] !== ')') return null
+  if (atoms.length === null) return null
+  console.log(atoms)
+  return [atoms, s]
+}
+
+let procedure = function procedure (args, params, body, env) {
+  let proc = Object.assign(Object.create(Environment), {
+    params: [],
+    body: '',
+    localEnv: {}
+  })
+  return function procWithEnv (args) {
+    
+    return Object.assign(Object.create(proc), {
+
+    })
+  }
+}
+
+function parseEval (s) {
+  let currVal = null
+  if (!s.startsWith('(')) return null
+  s = s.slice(1).trimStart()
+  if (s[0] === '(') {
+    let resPE = parseEval(s)
+    if (resPE !== null) {
+      currVal = resPE[0]
+      s = resPE[1]
+    }
+  }
+  if (s[0] === ')') return [currVal, s]
+  let resA = atomize(s)
+  if (resA === null) return null
+  if (resA[0] in Environment) return Environment[resA[0]]
+}
