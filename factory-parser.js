@@ -148,13 +148,11 @@ function numberParser (s) {
   let signParsed = 0
   let startZeroesParsed = 0
   let decimalPointsParsed = 0
-
   // Handle single occurence of zero
   if (s[0] === '0') {
     let tempR = consumeSpaces(s.slice(1))
-    if (tempR[0] === ',' || tempR[0] === '}' || tempR[0] === ']') return [s[0] * 1, tempR]
+    if (tempR[0] === ',' || tempR[0] === '}' || tempR[0] === ']' || tempR[0] === ')') return [s[0] * 1, tempR]
   }
-
   while (true) {
     // Pick transition functions based on state
     let transitionF = pickFuncs(state, ind)
@@ -192,7 +190,7 @@ function numberParser (s) {
     parsed += v
     ind += 2
     remainingString = rest
-    if (remainingString.length === 0 || remainingString === '0') {
+    if (remainingString.length === 0 /* || remainingString.trimStart()[0] === ')' */) {
       if (isNaN(parsed * 1)) return null
       return [parsed * 1, '']
     }
@@ -243,6 +241,23 @@ function atomize (s, env) {
   console.log(res)
   if (!(s[0] !== ' ' || s[0] !== ')')) return null
   return [res[0], s]
+}
+
+function ifOp (s, env) {
+  console.log('---------From ifOp() ----------')
+  console.log(s)
+  if (!(s.startsWith('if '))) return null
+  s = consumeSpaces(s.slice(3))
+  let evalCondition = expressionParser(s, env)
+  if (evalCondition !== null) {
+    let [v, remS] = evalCondition
+    remS = consumeSpaces(remS)
+    let evalSucc = extractExp(remS, env)
+    if (v) {
+      let [_, remS2] = extractExp(consumeSpaces(evalSucc[1]), env)
+      return [parseEval(evalSucc[0], env), remS2]
+    } else return expressionParser(consumeSpaces(evalSucc[1]), env)
+  } else return null
 }
 
 function defineOp (s, env) {
@@ -338,7 +353,7 @@ let procedure = function lambda (params, body, env) {
     let lEnv = {}
     params.forEach(function (k, i) { lEnv[k] = args[i] })
     let procEnv = createScope(lEnv, env)
-    return parseEval(body, procEnv)
+    return parseEval(body, procEnv)[0]
   }
 }
 
@@ -394,19 +409,19 @@ function expressionParser (s, env) {
 }
 
 function parseEval (s, env) {
-  // if (env.find(s)) return env.find(s)
+  s = s.trimStart()
+  if (atomize(s, env)) { return atomize(s, env)[0] }
   console.log('--------From parseEvl-----------')
   let currVal = null
-  if (!s.startsWith('(')) return null
   s = s.slice(1).trimStart()
-  console.log(s)
-  if (s[0] === '(') {
-    let resPE = parseEval(s, env)
-    if (resPE !== null) {
-      currVal = resPE[0]
-      s = resPE[1]
-    }
-  }
+  console.log(s) // (+ 1 2))
+  //  if (s[0] === '(') {
+  //    let resPE = parseEval(s, env)
+  //    if (resPE !== null) {
+  //      currVal = resPE[0]
+  //      s = resPE[1]
+  //    }
+  //  }
   if (s[0] === ')') return [currVal, s]
   if (s.startsWith('define ')) {
     let resD = defineOp(s, env)
@@ -414,6 +429,7 @@ function parseEval (s, env) {
     currVal = []
     return resD
   }
+  if (s.startsWith('if ')) return ifOp(s, env)
   if (s.startsWith('lambda ')) {
   } else {
     let resEP = expressionParser('(' + s, env)
