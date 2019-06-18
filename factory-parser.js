@@ -214,7 +214,7 @@ function parseSymbol (s, env, set = 0) {
 }
 
 function extractExp (s, env) {
-  if (atomize(s.trimStart(), env)) { return atomize(s.trimStart(), env) }
+  if (atomize(s, env)) { return atomize(s, env) }
   if (s[0] !== '(') return null
   let exp = '('
   s = consumeSpaces(s.slice(1))
@@ -236,6 +236,8 @@ function extractExp (s, env) {
 }
 
 function atomize (s, env) {
+  if (typeof s === 'number') return s
+  if (typeof s === 'undefined') return null
   s = s.trimStart()
   let res = numberParser(s) || parseSymbol(s, env)
   if (res === null) return null
@@ -355,12 +357,16 @@ let procedure = function lambda (params, body, env) {
     let lEnv = {}
     params.forEach(function (k, i) { lEnv[k] = args[i] })
     let procEnv = createScope(lEnv, env)
+    console.log('-----------Frm insidde procedure----------')
+    console.log(lEnv)
+    console.log(args)
+    console.log(body)
     return parseEval(body, procEnv)[0]
   }
 }
 
 function expressionParser (s, env) {
-  if (atomize(s.trimStart(), env)) { return atomize(s.trimStart(), env)[0] }
+  if (atomize(s, env)) { return atomize(s, env) }
   console.log('=======From expressionParser----------')
   if (s[0] !== '(') return null
   let valList = []
@@ -376,7 +382,7 @@ function expressionParser (s, env) {
     s = respKW[1]
     while (true) {
       if (!s) return null
-      console.log('===============From expressionParser()==============')
+      console.log('===============From expressionParser() 2==============')
       console.log(String(env))
       console.log(func)
       console.log(valList)
@@ -395,7 +401,7 @@ function expressionParser (s, env) {
         }
       }
       s = consumeSpaces(s)
-      console.log('---------------From expressionParser() 2-------------')
+      console.log('---------------From expressionParser() 3-------------')
       console.log('---before parsing num/sym')
       console.log(s)
       let resP = numberParser(s) || parseSymbol(s, env)
@@ -417,22 +423,35 @@ function expressionParser (s, env) {
 
 function parseEval (s, env) {
   // s = s.trimStart()
-  console.log('-----------From parseEvl beginninig=============')
-  console.log(s)
-  if (typeof s === 'number') return s
-  if (atomize(s.trimStart(), env)) { return atomize(s.trimStart(), env)[0] }
+  if (atomize(s, env)) { return atomize(s, env) }
+  if (typeof s === 'function') return s
   console.log('--------From parseEvl-----------')
   console.log(atomize(s, env))
   let currVal = null
   s = s.slice(1).trimStart()
   console.log(s) // (+ 1 2))
-  //  if (s[0] === '(') {
-  //    let resPE = parseEval(s, env)
-  //    if (resPE !== null) {
-  //      currVal = resPE[0]
-  //      s = resPE[1]
-  //    }
-  //  }
+  if (s[0] === '(') {
+    let resEP = expressionParser(s, env)
+    if (resEP === null) return null
+    s = resEP[1]
+    if (typeof resEP[0] === 'function') {
+      let func = resEP[0]
+      var argsL = []
+      resEP = expressionParser(s, env)
+      while (resEP !== null) {
+        console.log('ayyy lmao')
+        argsL.push(resEP[0])
+        resEP = expressionParser(s, env)
+        console.log(resEP)
+        if (resEP !== null) s = resEP[1]
+      }
+      console.log('============Before func return=============')
+      console.log(argsL)
+      console.log(func)
+      return func(...argsL)
+    }
+    return resEP
+  }
   if (s[0] === ')') return [currVal, s]
   if (s.startsWith('define ')) {
     let resD = defineOp(s, env)
@@ -443,16 +462,17 @@ function parseEval (s, env) {
   if (s.startsWith('if ')) return ifOp(s, env)
   if (s.startsWith('lambda ')) {
     let resLO = lambdaOp(s, env)
+    console.log('=========Inside parseEval, RESLO! i am lambda=======')
+    console.log([procedure(resLO[0][0], resLO[0][1], env), resLO[1].slice(1)])
     if (resLO !== null) {
-      let anonymousF = procedure(resLO[0][0], resLO[0][1], env) // resLO[1]
-      return [anonymousF, resLO[1]]
+      return [procedure(resLO[0][0], resLO[0][1], env), resLO[1]]
     }
   } else {
     let resEP = expressionParser('(' + s, env)
     if (resEP === null) return null
-    if (resEP[1].trimStart().length > 0) return null
-    else {
-      return resEP[0]
-    }
+    // if (resEP[1].trimStart().length > 0) return null
+    // else {
+    return resEP
+    // }
   }
 }
