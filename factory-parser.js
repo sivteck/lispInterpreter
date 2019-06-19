@@ -7,10 +7,8 @@ let createScope = (localEnv, outer) => {
       Object.assign(this, localEnv)
     },
     find (k) {
-      console.log('From Inside scope object D:')
-      console.log(k)
       if (k in localEnv) return localEnv[k]
-      else return outer.find(k)
+      return outer.find(k)
     }
   }
 }
@@ -151,6 +149,7 @@ function numberParser (s) {
   // Handle single occurence of zero
   if (s[0] === '0') {
     let tempR = consumeSpaces(s.slice(1))
+    if (s.slice(1)[0] === ' ') return [s[0] * 1, tempR]
     if (tempR[0] === ',' || tempR[0] === '}' || tempR[0] === ']' || tempR[0] === ')') return [s[0] * 1, tempR]
   }
   while (true) {
@@ -198,8 +197,6 @@ function numberParser (s) {
 }
 
 function parseSymbol (s, env, set = 0) {
-  console.log('================ From parseSymbol ================')
-  console.log(s)
   let resSymbol = ''
   let remS = s
   while (true) {
@@ -208,7 +205,8 @@ function parseSymbol (s, env, set = 0) {
     resSymbol += remS[0]
     remS = remS.slice(1)
   }
-  if (env.find(resSymbol) && set !== 1) resSymbol = env.find(resSymbol)
+  let fromScope = env.find(resSymbol)
+  if ((fromScope !== null) && set !== 1) resSymbol = fromScope
   if (resSymbol.length !== 0 || typeof resSymbol === 'function') return [resSymbol, remS]
   else return null
 }
@@ -217,14 +215,14 @@ function extractExp (s, env) {
   if (atomize(s, env)) { return atomize(s, env) }
   if (s[0] !== '(') return null
   let exp = '('
-  s = consumeSpaces(s.slice(1))
+  s = s.slice(1).trimStart()
   while (true) {
-    if (s[0] === ')') return [exp.concat(')'), s.slice(1)]
-    if (s === '') return null
-    if (s[0] === '(') {
+    if (s.startsWith(')')) return [exp.concat(')'), s.slice(1)]
+    if (s.length === 0) return null
+    if (s.startsWith('(')) {
       let eExp = extractExp(s, env)
       if (eExp === null) return null
-      else if (eExp !== null) {
+      if (eExp !== null) {
         exp += eExp[0]
         s = eExp[1]
       }
@@ -237,27 +235,22 @@ function extractExp (s, env) {
 
 function atomize (s, env) {
   if (typeof s === 'number') return s
-  if (typeof s === 'undefined') return null
+  if (s === undefined) return null
   s = s.trimStart()
   let res = numberParser(s) || parseSymbol(s, env)
   if (res === null) return null
   s = res[1]
-  console.log(res)
   if (!(s[0] !== ' ' || s[0] !== ')')) return null
-  return [res[0], s]
+  return res
 }
 
 function ifOp (s, env) {
-  console.log('---------From ifOp() ----------')
-  console.log(s)
   if (!(s.startsWith('if '))) return null
   s = consumeSpaces(s.slice(3))
   let evalCondition = expressionParser(s, env)
   if (evalCondition !== null) {
     let [v, remS] = evalCondition
     remS = consumeSpaces(remS)
-    console.log('---------from ifOp() 2========')
-    console.log(remS)
     let evalSucc = extractExp(remS, env) || atomize(remS, env)
     if (v) {
       let [_, remS2] = extractExp(consumeSpaces(evalSucc[1]), env)
@@ -267,26 +260,20 @@ function ifOp (s, env) {
 }
 
 function defineOp (s, env) {
-  if (!(s.startsWith('define'))) return null
-  s = s.slice(6)
-  console.log('---------------From defineOp()------------------')
-  console.log(s)
+  if (!(s.startsWith('define '))) return null
+  s = s.slice(7)
   s = updateEnv(s, env)
   if (s !== null) return [[], s]
 }
 
 function updateEnv (s, env, set = 0) {
   s = consumeSpaces(s)
-  console.log('============From updateEnv resPS==========')
 
   let resPS = parseSymbol(s, env, set)
-  console.log(resPS)
   if (resPS !== null) {
     let [v, remS] = resPS
     if (set === 1) if (!(env.find(v))) return null
     let resNP = numberParser(consumeSpaces(remS))
-    console.log('------------From updateEnv resNP----------')
-    console.log(resNP)
     if (resNP !== null) {
       let [vn, remSn] = resNP
       let envUp = {}
@@ -301,8 +288,6 @@ function updateEnv (s, env, set = 0) {
           proc = [procedure(resLO[0][0], resLO[0][1], env), resLO[1]]
         }
       }
-      console.log('-----------From updateEnv proc---------')
-      console.log(proc)
       if (proc === null) return null
       let envUp = {}
       envUp[v] = proc[0]
@@ -315,13 +300,10 @@ function updateEnv (s, env, set = 0) {
 
 function lambdaOp (s, env) {
   if (!(s.startsWith('lambda '))) return null
-  console.log('===========From lambdaop==============')
   let variables = (extractExp(consumeSpaces(s.slice(7)), env))
   if (variables !== null) {
     let lExpression = (extractExp(consumeSpaces(variables[1]), env))
-    console.log(lExpression)
     if (lExpression !== null) {
-      console.dir([[paramList(variables[0])[0], lExpression[0]], lExpression[1]], { 'depth': null })
       return [[paramList(variables[0])[0], lExpression[0]], lExpression[1]]
     }
   }
@@ -357,39 +339,26 @@ let procedure = function lambda (params, body, env) {
     let lEnv = {}
     params.forEach(function (k, i) { lEnv[k] = args[i] })
     let procEnv = createScope(lEnv, env)
-    console.log('-----------Frm insidde procedure----------')
-    console.log(lEnv)
-    console.log(args)
-    console.log(body)
     return parseEval(body, procEnv)[0]
   }
 }
 
 function expressionParser (s, env) {
   if (atomize(s, env)) { return atomize(s, env) }
-  console.log('=======From expressionParser----------')
   if (s[0] !== '(') return null
   let valList = []
   s = consumeSpaces(s.slice(1))
-  if (s.startsWith('define ')) s = updateEnv(s.slice(7), 0, env)
+  if (s.startsWith('define ')) s = updateEnv(s.slice(7), env)
   else {
     let respKW = atomize(s, env)
-    console.log(respKW)
-    console.log(s)
     if (respKW === null) return null
     let func = respKW[0]
     if (typeof func !== 'function') { func = env.find(respKW[0]) }
     s = respKW[1]
     while (true) {
       if (!s) return null
-      console.log('===============From expressionParser() 2==============')
-      console.log(String(env))
-      console.log(func)
-      console.log(valList)
-      console.log(s)
       s = consumeSpaces(s)
       if (s[0] === ')') {
-        console.log([func(...valList), s.slice(1)])
         return [func(...valList), s.slice(1)]
       }
       if (s[0] === '(') {
@@ -401,15 +370,10 @@ function expressionParser (s, env) {
         }
       }
       s = consumeSpaces(s)
-      console.log('---------------From expressionParser() 3-------------')
-      console.log('---before parsing num/sym')
-      console.log(s)
       let resP = numberParser(s) || parseSymbol(s, env)
-      console.log('==========expParser() 2===========')
-      console.log(resP)
       if (resP !== null) {
         if (resP[0] === 'define ') {
-          s = updateEnv(s, 0)
+          s = updateEnv(s, env)
           if (s === null) return null
         } else {
           valList.push(resP[0])
@@ -425,11 +389,8 @@ function parseEval (s, env) {
   // s = s.trimStart()
   if (atomize(s, env)) { return atomize(s, env) }
   if (typeof s === 'function') return s
-  console.log('--------From parseEvl-----------')
-  console.log(atomize(s, env))
   let currVal = null
   s = s.slice(1).trimStart()
-  console.log(s) // (+ 1 2))
   if (s[0] === '(') {
     let resEP = expressionParser(s, env)
     if (resEP === null) return null
@@ -439,15 +400,10 @@ function parseEval (s, env) {
       var argsL = []
       resEP = expressionParser(s, env)
       while (resEP !== null) {
-        console.log('ayyy lmao')
         argsL.push(resEP[0])
         resEP = expressionParser(s, env)
-        console.log(resEP)
         if (resEP !== null) s = resEP[1]
       }
-      console.log('============Before func return=============')
-      console.log(argsL)
-      console.log(func)
       return func(...argsL)
     }
     return resEP
@@ -462,8 +418,6 @@ function parseEval (s, env) {
   if (s.startsWith('if ')) return ifOp(s, env)
   if (s.startsWith('lambda ')) {
     let resLO = lambdaOp(s, env)
-    console.log('=========Inside parseEval, RESLO! i am lambda=======')
-    console.log([procedure(resLO[0][0], resLO[0][1], env), resLO[1].slice(1)])
     if (resLO !== null) {
       return [procedure(resLO[0][0], resLO[0][1], env), resLO[1]]
     }
@@ -476,3 +430,6 @@ function parseEval (s, env) {
     // }
   }
 }
+
+parseEval('(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))', Environment)
+parseEval('(fib 3)', Environment)
