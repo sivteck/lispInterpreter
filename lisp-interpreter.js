@@ -1,7 +1,6 @@
 const parsers = require('./factory-parser.js')
-const parseNum = parsers.numParser
-const parseStr = parsers.stringParser
-const parseExp = parsers.expParser
+const parseEval = parsers.parseEval
+const Env = parsers.environment
 
 const repl = s => console.log(s)
 
@@ -13,7 +12,7 @@ let rl = readline.createInterface({
 })
 
 function evalLisp (s) {
-  let resPL = parseExp(s)
+  let resPL = parseEval(s, Env)
   if (resPL) return resPL[0]
   else return null
 }

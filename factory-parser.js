@@ -1,6 +1,3 @@
-// exports.numParser = numberParser
-// exports.expParser = expressionParser
-
 let createScope = (localEnv, outer) => {
   return {
     update (localEnv) {
@@ -17,7 +14,10 @@ let Environment = {
   globalEnv: {
     'pi': 3.14,
     '+': (...vals) => vals.reduce((x, y) => x + y, 0),
-    '-': (...vals) => vals.slice(1).reduce((x, y) => x - y, vals[0]),
+    '-': (...vals) => {
+      if (vals.length === 1) return -1 * vals[0]
+      return vals.slice(1).reduce((x, y) => x - y, vals[0])
+    },
     '*': (...vals) => vals.reduce((x, y) => x * y, 1),
     '/': (...vals) => vals.reduce((x, y) => x / y, 1),
     '>': (x, y) => x > y,
@@ -386,7 +386,6 @@ function expressionParser (s, env) {
 }
 
 function parseEval (s, env) {
-  // s = s.trimStart()
   if (atomize(s, env)) { return atomize(s, env) }
   if (typeof s === 'function') return s
   let currVal = null
@@ -424,12 +423,9 @@ function parseEval (s, env) {
   } else {
     let resEP = expressionParser('(' + s, env)
     if (resEP === null) return null
-    // if (resEP[1].trimStart().length > 0) return null
-    // else {
     return resEP
-    // }
   }
 }
 
-parseEval('(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))', Environment)
-parseEval('(fib 3)', Environment)
+exports.parseEval = parseEval
+exports.environment = Environment
