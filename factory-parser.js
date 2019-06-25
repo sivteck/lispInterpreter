@@ -1,44 +1,60 @@
-// exports.numParser = numberParser
-// exports.expParser = expressionParser
-
-const env = {}
+let createScope = (localEnv, outer) => {
+  return {
+    update (localEnv) {
+      Object.assign(this, localEnv)
+    },
+    find (k) {
+      if (k in localEnv) return localEnv[k]
+      return outer.find(k)
+    }
+  }
+}
 
 let Environment = {
-  'pi': 3.14,
-  '+': (...vals) => vals.reduce((x, y) => x + y, 0),
-  '-': (...vals) => vals.slice(1).reduce((x, y) => x - y, vals[0]),
-  '*': (...vals) => vals.reduce((x, y) => x * y, 1),
-  '/': (...vals) => vals.reduce((x, y) => x / y, 1),
-  '>': (x, y) => x > y,
-  '<': (x, y) => x < y,
-  '>=': (x, y) => x >= y,
-  '<=': (x, y) => x <= y,
-  '===': (x, y) => x === y,
-  '!==': (x, y) => x !== y,
-  'abs': (x) => Math.abs(x),
-  'append': (x, y) => x.concat(y),
-  'apply': (func, args) => func(...args),
-  'begin': (...args) => args[args.length - 1],
-  'car': (x) => x[0],
-  'cdr': (x) => x.slice(1),
-  'cons': (x, y) => [x].concat(y),
-  'eq?': (x, y) => x === y,
-  'expt': (x, y) => Math.pow(x, y),
-  'equal?': (x, y) => x === y,
-  'length': (x) => x.length,
-  'list': (...x) => x,
-  'list?': (x) => Array.isArray(x),
-  // 'map':
-  // 'max':
-  // 'min':
-  'not': (x) => !(x),
-  'null?': (x) => x === null,
-  'number?': (x) => (typeof x) === 'number',
-  'print': (x) => console.log(x[0]),
-  // 'procedure?':
-  'round': Math.round(),
-  'symbol?': (x) => (typeof x) === 'string',
-  'innerEnv': env
+  globalEnv: {
+    'pi': 3.14,
+    '+': (...vals) => vals.reduce((x, y) => x + y, 0),
+    '-': (...vals) => {
+      if (vals.length === 1) return -1 * vals[0]
+      return vals.slice(1).reduce((x, y) => x - y, vals[0])
+    },
+    '*': (...vals) => vals.reduce((x, y) => x * y, 1),
+    '/': (...vals) => vals.reduce((x, y) => x / y, 1),
+    '>': (x, y) => x > y,
+    '<': (x, y) => x < y,
+    '>=': (x, y) => x >= y,
+    '<=': (x, y) => x <= y,
+    '===': (x, y) => x === y,
+    '!==': (x, y) => x !== y,
+    'abs': (x) => Math.abs(x),
+    'append': (x, y) => x.concat(y),
+    'apply': (func, args) => func(...args),
+    'begin': (...args) => args[args.length - 1],
+    'car': (x) => x[0],
+    'cdr': (x) => x.slice(1),
+    'cons': (x, y) => [x].concat(y),
+    'eq?': (x, y) => x === y,
+    'expt': (x, y) => Math.pow(x, y),
+    'equal?': (x, y) => x === y,
+    'length': (x) => x.length,
+    // 'map':
+    // 'max':
+    // 'min':
+    'not': (x) => !(x),
+    'null?': (x) => x === null,
+    'number?': (x) => (typeof x) === 'number',
+    'print': (x) => console.log(x[0]),
+    // 'procedure?':
+    'round': (x) => Math.round(x),
+    'symbol?': (x) => (typeof x) === 'string'
+  },
+  update (globals) {
+    Object.assign(this.globalEnv, globals)
+  },
+  find (k) {
+    if (k in this.globalEnv) return this.globalEnv[k]
+    else return null
+  }
 }
 
 function isSigned (inp) {
@@ -130,13 +146,12 @@ function numberParser (s) {
   let signParsed = 0
   let startZeroesParsed = 0
   let decimalPointsParsed = 0
-
   // Handle single occurence of zero
   if (s[0] === '0') {
     let tempR = consumeSpaces(s.slice(1))
-    if (tempR[0] === ',' || tempR[0] === '}' || tempR[0] === ']') return [s[0] * 1, tempR]
+    if (s.slice(1)[0] === ' ') return [s[0] * 1, tempR]
+    if (tempR[0] === ',' || tempR[0] === '}' || tempR[0] === ']' || tempR[0] === ')') return [s[0] * 1, tempR]
   }
-
   while (true) {
     // Pick transition functions based on state
     let transitionF = pickFuncs(state, ind)
@@ -174,164 +189,40 @@ function numberParser (s) {
     parsed += v
     ind += 2
     remainingString = rest
-    if (remainingString.length === 0 || remainingString === '0') {
+    if (remainingString.length === 0 /* || remainingString.trimStart()[0] === ')' */) {
       if (isNaN(parsed * 1)) return null
       return [parsed * 1, '']
     }
   }
 }
 
-// TODO: integrate all ops/exps
-function evalExp (s) {
-  if (s[0] !== '(') return null
-  else s = s.slice(1)
-  let result = []
-  if (s[0] === ')') return [result, s.slice(1)]
-  if (s.startsWith('define ')) s = defineOp(s)
-  else expressionParser('(' + s)
-  console.log('================From evalExp=============')
-  console.log(s)
-}
-
-function parseKeywords (s) {
-  let keys = Object.keys(Environment)
-  for (let i = 0; i < keys.length; i++) {
-    if (s.startsWith(keys[i])) {
-      return [Environment[keys[i]], s.slice(keys[i].length)]
-    }
-  }
-  return null
-}
-
-function parseSymbol (s, set) {
+function parseSymbol (s, env, set = 0) {
   let resSymbol = ''
   let remS = s
   while (true) {
-    if (remS[0] === ' ' || remS[0] === ')' || remS[0] === ')') break
+    if (remS[0] === ' ' || remS[0] === '(' || remS[0] === ')') break
+    if (remS.length === 0) return null
     resSymbol += remS[0]
     remS = remS.slice(1)
   }
-  if (resSymbol in Environment && set !== 1) resSymbol = Environment[resSymbol]
-  if (resSymbol.length !== 0) return [resSymbol, remS]
+  let fromScope = env.find(resSymbol)
+  if ((fromScope !== null) && set !== 1) resSymbol = fromScope
+  if (resSymbol.length !== 0 || typeof resSymbol === 'function') return [resSymbol, remS]
   else return null
 }
 
-function expressionParser (s) {
-  if (s[0] !== '(') return null
-  let valList = []
-  s = consumeSpaces(s.slice(1))
-  if (s.startsWith('define')) s = updateEnv(s.slice(6), 0)
-  else {
-    let respKW = parseKeywords(s)
-    if (respKW === null) return null
-    let func = respKW[0]
-    s = respKW[1]
-    while (true) {
-      s = consumeSpaces(s)
-      if (s[0] === ')') return [func(...valList), s.slice(1)]
-      if (s[0] === '(') {
-        let resExp = expressionParser(s)
-        if (resExp === null) return null
-        else {
-          valList.push(resExp[0])
-          s = resExp[1]
-        }
-      }
-      s = consumeSpaces(s)
-      let resP = numOrSymParser(s)
-      if (resP !== null) {
-        if (resP[0] === 'define') {
-          s = updateEnv(s, 0)
-          if (s === null) return null
-        } else {
-          valList.push(resP[0])
-          s = resP[1]
-        }
-      }
-    }
-  }
-  s = s.slice(1)
-}
-
-function numOrSymParser (s) {
-  return numberParser(s) || parseSymbol(s)
-}
-
-function updateEnv (s, set) {
-  s = consumeSpaces(s)
-  let resPS = parseSymbol(s, set)
-  console.log('============From updateEnv resPS==========')
-  console.log(resPS)
-  if (resPS !== null) {
-    let [v, remS] = resPS
-    if (set === 1) if (!(v in Environment)) return null
-    let resNP = numberParser(consumeSpaces(remS))
-    console.log('------------From updateEnv resNP----------')
-    console.log(resNP)
-    if (resNP !== null) {
-      let [vn, remSn] = resNP
-      Environment[v] = vn
-      return remSn
-    } else {
-      let proc = extractExp(consumeSpaces(remS))
-      console.log('-----------From updateEnv proc---------')
-      console.log(proc)
-      if (proc === null) return null
-      Environment[v] = proc[0]
-      return [[], proc[1]]
-    }
-  }
-  return null
-}
-
-let evalOps = [defineOp, ifOp, quoteOp, setOp]
-
-function defineOp (s) {
-  if (!(s.startsWith('define'))) return null
-  s = s.slice(6)
-  console.log('---------------From defineOp()------------------')
-  console.log(s)
-  s = updateEnv(s)
-  if (s !== null) return [[], s]
-  else return s
-}
-
-function ifOp (s) {
-  if (!(s.startsWith('if'))) return null
-  s = consumeSpaces(s.slice(2))
-  let evalCondition = expressionParser(s)
-  if (evalCondition !== null) {
-    let [v, remS] = evalCondition
-    remS = consumeSpaces(remS)
-    let evalSucc = expressionParser(remS)
-    if (v) {
-      let [_, remS2] = expressionParser(consumeSpaces(evalSucc[1]))
-      return [evalSucc[0], remS2]
-    } else return expressionParser(consumeSpaces(evalSucc[1]))
-  } else return null
-}
-
-function quoteOp (s) {
-  if (!(s.startsWith('quote'))) return null
-  s = consumeSpaces(s.slice(5))
-  return extractExp(expressionParser(s))
-}
-
-function extractExp (s) {
+function extractExp (s, env) {
+  if (atomize(s, env)) { return atomize(s, env) }
   if (s[0] !== '(') return null
   let exp = '('
-  s = consumeSpaces(s.slice(1))
-  if (s.startsWith('lambda')) return lambdaOp(s)
-  if (!(s.startsWith('lambda'))) {
-    lambdaOp(s)
-  }
+  s = s.slice(1).trimStart()
   while (true) {
-    if (s[0] === ')') return [exp.concat(')'), s.slice(1)]
-    if (s === '') return null
-    if (s[0] === '(') {
-      let eExp = extractExp(s)
+    if (s.startsWith(')')) return [exp.concat(')'), s.slice(1)]
+    if (s.length === 0) return null
+    if (s.startsWith('(')) {
+      let eExp = extractExp(s, env)
       if (eExp === null) return null
-      else if (eExp !== null) {
+      if (eExp !== null) {
         exp += eExp[0]
         s = eExp[1]
       }
@@ -342,22 +233,77 @@ function extractExp (s) {
   }
 }
 
-function setOp (s) {
-  if (!(s.startsWith('set!'))) return null
-  s = consumeSpaces(s.slice(4))
-  s = updateEnv(s, 1)
-  return s
+function atomize (s, env) {
+  if (typeof s === 'number') return s
+  if (s === undefined) return null
+  s = s.trimStart()
+  let res = numberParser(s) || parseSymbol(s, env)
+  if (res === null) return null
+  s = res[1]
+  if (!(s[0] !== ' ' || s[0] !== ')')) return null
+  return res
 }
 
-function lambdaOp (s) {
-  if (!(s.startsWith('lambda'))) return null
-  console.log('===========From lambdaop==============')
-  let variables = (extractExp(consumeSpaces(s.slice(6))))
+function ifOp (s, env) {
+  if (!(s.startsWith('if '))) return null
+  s = consumeSpaces(s.slice(3))
+  let evalCondition = expressionParser(s, env)
+  if (evalCondition !== null) {
+    let [v, remS] = evalCondition
+    remS = consumeSpaces(remS)
+    let evalSucc = extractExp(remS, env) || atomize(remS, env)
+    if (v) {
+      let [_, remS2] = extractExp(consumeSpaces(evalSucc[1]), env)
+      return [parseEval(evalSucc[0], env), remS2]
+    } else return expressionParser(consumeSpaces(evalSucc[1]), env)
+  } else return null
+}
+
+function defineOp (s, env) {
+  if (!(s.startsWith('define '))) return null
+  s = s.slice(7)
+  s = updateEnv(s, env)
+  if (s !== null) return [[], s]
+}
+
+function updateEnv (s, env, set = 0) {
+  s = consumeSpaces(s)
+
+  let resPS = parseSymbol(s, env, set)
+  if (resPS !== null) {
+    let [v, remS] = resPS
+    if (set === 1) if (!(env.find(v))) return null
+    let resNP = numberParser(consumeSpaces(remS))
+    if (resNP !== null) {
+      let [vn, remSn] = resNP
+      let envUp = {}
+      envUp[v] = vn
+      env.update(envUp)
+      return [[], remSn]
+    } else {
+      let proc = extractExp(consumeSpaces(remS), env)
+      if (proc !== null && proc[0].slice(1).startsWith('lambda ')) {
+        let resLO = lambdaOp(proc[0].slice(1), env)
+        if (resLO !== null) {
+          proc = [procedure(resLO[0][0], resLO[0][1], env), resLO[1]]
+        }
+      }
+      if (proc === null) return null
+      let envUp = {}
+      envUp[v] = proc[0]
+      env.update(envUp)
+      return [[], proc[1]]
+    }
+  }
+  return null
+}
+
+function lambdaOp (s, env) {
+  if (!(s.startsWith('lambda '))) return null
+  let variables = (extractExp(consumeSpaces(s.slice(7)), env))
   if (variables !== null) {
-    let lExpression = (extractExp(consumeSpaces(variables[1])))
-    console.log(lExpression)
+    let lExpression = (extractExp(consumeSpaces(variables[1]), env))
     if (lExpression !== null) {
-      console.dir([[paramList(variables[0])[0], lExpression[0]], lExpression[1]], { 'depth': null })
       return [[paramList(variables[0])[0], lExpression[0]], lExpression[1]]
     }
   }
@@ -388,16 +334,98 @@ function paramList (s) {
   }
 }
 
-function argValues (s) {
-
+let procedure = function lambda (params, body, env) {
+  return function procWithEnv (...args) {
+    let lEnv = {}
+    params.forEach(function (k, i) { lEnv[k] = args[i] })
+    let procEnv = createScope(lEnv, env)
+    return parseEval(body, procEnv)[0]
+  }
 }
 
-function localEnv (argL, argV) {
-
+function expressionParser (s, env) {
+  if (atomize(s, env)) { return atomize(s, env) }
+  if (s[0] !== '(') return null
+  let valList = []
+  s = consumeSpaces(s.slice(1))
+  if (s.startsWith('define ')) s = updateEnv(s.slice(7), env)
+  else {
+    let respKW = atomize(s, env)
+    if (respKW === null) return null
+    let func = respKW[0]
+    if (typeof func !== 'function') { func = env.find(respKW[0]) }
+    s = respKW[1]
+    while (true) {
+      if (!s) return null
+      s = consumeSpaces(s)
+      if (s[0] === ')') {
+        return [func(...valList), s.slice(1)]
+      }
+      if (s[0] === '(') {
+        let resExp = expressionParser(s, env)
+        if (resExp === null) return null
+        else {
+          valList.push(resExp[0])
+          s = resExp[1]
+        }
+      }
+      s = consumeSpaces(s)
+      let resP = numberParser(s) || parseSymbol(s, env)
+      if (resP !== null) {
+        if (resP[0] === 'define ') {
+          s = updateEnv(s, env)
+          if (s === null) return null
+        } else {
+          valList.push(resP[0])
+          s = resP[1]
+        }
+      }
+    }
+  }
+  s = s.slice(1)
 }
 
-function procedure () {
-  this.env = {}
-  this.params = {}
-  this.expression = {}
+function parseEval (s, env) {
+  if (atomize(s, env)) { return atomize(s, env) }
+  if (typeof s === 'function') return s
+  let currVal = null
+  s = s.slice(1).trimStart()
+  if (s[0] === '(') {
+    let resEP = expressionParser(s, env)
+    if (resEP === null) return null
+    s = resEP[1]
+    if (typeof resEP[0] === 'function') {
+      let func = resEP[0]
+      var argsL = []
+      resEP = expressionParser(s, env)
+      while (resEP !== null) {
+        argsL.push(resEP[0])
+        resEP = expressionParser(s, env)
+        if (resEP !== null) s = resEP[1]
+      }
+      return func(...argsL)
+    }
+    return resEP
+  }
+  if (s[0] === ')') return [currVal, s]
+  if (s.startsWith('define ')) {
+    let resD = defineOp(s, env)
+    if (resD === null) return null
+    currVal = []
+    return resD
+  }
+  if (s.startsWith('if ')) return ifOp(s, env)
+  if (s.startsWith('lambda ')) {
+    let resLO = lambdaOp(s, env)
+    if (resLO !== null) {
+      return [procedure(resLO[0][0], resLO[0][1], env), resLO[1]]
+    }
+  } else {
+    let resEP = expressionParser('(' + s, env)
+    if (resEP === null) return null
+    return resEP
+  }
 }
+
+exports.parseEval = parseEval
+exports.environment = Environment
