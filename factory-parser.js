@@ -221,11 +221,10 @@ function extractExp (s, env) {
     if (s.length === 0) return null
     if (s.startsWith('(')) {
       let eExp = extractExp(s, env)
-      if (eExp === null) return null
       if (eExp !== null) {
         exp += eExp[0]
         s = eExp[1]
-      }
+      } else return null
     } else {
       exp += s[0]
       s = s.slice(1)
@@ -233,10 +232,10 @@ function extractExp (s, env) {
   }
 }
 
-function quoteOp (s) {
+function quoteOp (s, env) {
   if (!(s.startsWith('quote '))) return null
   s = s.slice(6).trimStart()
-  return extractExp(s)
+  return extractExp(s, env)
 }
 
 function atomize (s, env) {
@@ -268,8 +267,7 @@ function ifOp (s, env) {
 function defineOp (s, env) {
   if (!(s.startsWith('define '))) return null
   s = s.slice(7)
-  s = updateEnv(s, env)
-  if (s !== null) return [[], s]
+  return updateEnv(s, env)
 }
 
 function updateEnv (s, env, set = 0) {
@@ -285,7 +283,7 @@ function updateEnv (s, env, set = 0) {
       let envUp = {}
       envUp[v] = vn
       env.update(envUp)
-      return [[], remSn]
+      return [[], remSn.slice(1)]
     } else {
       let proc = extractExp(consumeSpaces(remS), env)
       if (proc !== null && proc[0].slice(1).startsWith('lambda ')) {
@@ -298,7 +296,7 @@ function updateEnv (s, env, set = 0) {
       let envUp = {}
       envUp[v] = proc[0]
       env.update(envUp)
-      return [[], proc[1]]
+      return [[], proc[1].slice(1)]
     }
   }
   return null
@@ -354,8 +352,13 @@ function expressionParser (s, env) {
   if (s[0] !== '(') return null
   let valList = []
   s = consumeSpaces(s.slice(1))
-  if (s.startsWith('define ')) s = updateEnv(s.slice(7), env)
-  else {
+  if (s.startsWith('define ')) {
+    let resUE = updateEnv(s.slice(7), env)[1]
+    if (resUE !== null) {
+      valList.push(resUE[0])
+      s = resUE[1].slice(1)
+    }
+  } else {
     let respKW = atomize(s, env)
     if (respKW === null) return null
     let func = respKW[0]
@@ -379,8 +382,9 @@ function expressionParser (s, env) {
       let resP = numberParser(s) || parseSymbol(s, env)
       if (resP !== null) {
         if (resP[0] === 'define ') {
-          s = updateEnv(s, env)
-          if (s === null) return null
+          let resUE = updateEnv(s, env)[1]
+          if (resUE === null) return null
+          else s = resUE[1].slice(1)
         } else {
           valList.push(resP[0])
           s = resP[1]
@@ -403,7 +407,7 @@ function parseEval (s, env) {
     if (typeof resEP[0] === 'function') {
       let func = resEP[0]
       var argsL = []
-      resEP = expressionParser(s, env)
+      resEP = parseEval(s, env)
       while (resEP !== null) {
         argsL.push(resEP[0])
         resEP = parseEval(s, env)
@@ -414,13 +418,8 @@ function parseEval (s, env) {
     return resEP
   }
   if (s[0] === ')') return [currVal, s]
-  if (s.startsWith('quote ')) {
-    return quoteOp(s)
-  }
-  if (s.startsWith('define ')) {
-    currVal = []
-    return defineOp(s, env)
-  }
+  if (s.startsWith('quote ')) return extractExp(s.slice(6).trimStart(), env)
+  if (s.startsWith('define ')) return defineOp(s, env)
   if (s.startsWith('if ')) return ifOp(s, env)
   if (s.startsWith('lambda ')) {
     let resLO = lambdaOp(s, env)
