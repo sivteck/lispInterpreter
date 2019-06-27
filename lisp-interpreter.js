@@ -2,8 +2,6 @@ const parsers = require('./factory-parser.js')
 const parseEval = parsers.parseEval
 const Env = parsers.environment
 
-const repl = s => console.log(s)
-
 let readline = require('readline')
 let rl = readline.createInterface({
   input: process.stdin,
@@ -13,7 +11,7 @@ let rl = readline.createInterface({
 
 function evalLisp (s) {
   let resPL = parseEval(s, Env)
-  if (resPL) return resPL[0]
+  if (resPL) return resPL[0] || resPL
   else return null
 }
 
