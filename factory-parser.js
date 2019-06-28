@@ -20,6 +20,7 @@ let Environment = {
     },
     '*': (...vals) => vals.reduce((x, y) => x * y, 1),
     '/': (...vals) => vals.reduce((x, y) => x / y, 1),
+    '=': (x, y) => x === y,
     '>': (x, y) => x > y,
     '<': (x, y) => x < y,
     '>=': (x, y) => x >= y,
@@ -32,12 +33,22 @@ let Environment = {
     'begin': (...args) => args[args.length - 1],
     'car': (x) => x[0],
     'cdr': (x) => x.slice(1),
-    'cons': (x, y) => [x].concat(y),
+    'cons': (x, y) => {
+      return [x].concat(y)
+    },
     'eq?': (x, y) => x === y,
     'expt': (x, y) => Math.pow(x, y),
     'equal?': (x, y) => x === y,
     'length': (x) => x.length,
-    // 'map':
+    'list': (...x) => x,
+    'map': (x, y) => {
+      let results = []
+      for (let i = 0; i < y.length; i++) {
+        if (typeof y[i] !== 'number') break
+        results.push(x(y[i]))
+      }
+      return results
+    },
     // 'max':
     // 'min':
     'not': (x) => !(x),
@@ -164,9 +175,7 @@ function numberParser (s) {
     } else if (state === null && ind === 0) return null
     // using var here for code brevity
     var [v, rest] = getResult(state)
-    if ((ind < 1) && (isZero(v) !== null)) {
-      startZeroesParsed++
-    }
+    if ((ind < 1) && (isZero(v) !== null)) startZeroesParsed++
     // Handle recurring "E/e"
     if (isExponential(remainingString)) expParsed++
     // Handle recurring "+/-"
@@ -180,7 +189,7 @@ function numberParser (s) {
     if (startZeroesParsed > 0 && (decimalPointsParsed === 0)) {
       if (rest.length >= 1 && rest[0] !== '.') return null
     }
-    // Check and return parsed string if there is unwanted "e/E/+/-/."
+    // Check and return null if there is unwanted "e/E/+/-/."
     if ((expParsed > 1) || (signParsed > 2) || (decimalPointsParsed > 1)) {
       if (isNaN(parsed * 1)) return null
     }
@@ -189,7 +198,7 @@ function numberParser (s) {
     parsed += v
     ind += 2
     remainingString = rest
-    if (remainingString.length === 0 /* || remainingString.trimStart()[0] === ')' */) {
+    if (remainingString.length === 0) {
       if (isNaN(parsed * 1)) return null
       return [parsed * 1, '']
     }
@@ -211,13 +220,26 @@ function parseSymbol (s, env, set = 0) {
   else return null
 }
 
+function atomize (s, env) {
+  if (typeof s === 'number') return s
+  if (s === undefined) return null
+  s = s.trimStart()
+  let res = numberParser(s) || parseSymbol(s, env)
+  if (res === null) return null
+  s = res[1]
+  if (!(s[0] !== ' ' || s[0] !== ')')) return null
+  return res
+}
+
 function extractExp (s, env) {
   if (atomize(s, env)) { return atomize(s, env) }
   if (s[0] !== '(') return null
   let exp = '('
   s = s.slice(1).trimStart()
   while (true) {
-    if (s.startsWith(')')) return [exp.concat(')'), s.slice(1)]
+    if (s.startsWith(')')) {
+      return [exp.concat(')'), s.slice(1).trimStart()]
+    }
     if (s.length === 0) return null
     if (s.startsWith('(')) {
       let eExp = extractExp(s, env)
@@ -230,23 +252,6 @@ function extractExp (s, env) {
       s = s.slice(1)
     }
   }
-}
-
-function quoteOp (s, env) {
-  if (!(s.startsWith('quote '))) return null
-  s = s.slice(6).trimStart()
-  return extractExp(s, env)
-}
-
-function atomize (s, env) {
-  if (typeof s === 'number') return s
-  if (s === undefined) return null
-  s = s.trimStart()
-  let res = numberParser(s) || parseSymbol(s, env)
-  if (res === null) return null
-  s = res[1]
-  if (!(s[0] !== ' ' || s[0] !== ')')) return null
-  return res
 }
 
 function ifOp (s, env) {
@@ -271,8 +276,7 @@ function defineOp (s, env) {
 }
 
 function updateEnv (s, env, set = 0) {
-  s = consumeSpaces(s)
-
+  s = s.trimStart()
   let resPS = parseSymbol(s, env, set)
   if (resPS !== null) {
     let [v, remS] = resPS
@@ -286,7 +290,7 @@ function updateEnv (s, env, set = 0) {
       return [[], remSn.slice(1)]
     } else {
       let proc = extractExp(consumeSpaces(remS), env)
-      if (proc !== null && proc[0].slice(1).startsWith('lambda ')) {
+      if (proc !== null && typeof proc[0] !== 'function' && proc[0].slice(1).startsWith('lambda ')) {
         let resLO = lambdaOp(proc[0].slice(1), env)
         if (resLO !== null) {
           proc = [procedure(resLO[0][0], resLO[0][1], env), resLO[1]]
@@ -331,10 +335,10 @@ function paramList (s) {
   let paramL = []
   while (true) {
     if (s[0] === ')') return [paramL, s.slice(1)]
-    let resGAN = getParamName(consumeSpaces(s))
-    if (resGAN === null) return [paramL, s]
-    paramL.push(resGAN[0])
-    s = resGAN[1]
+    let resPN = getParamName(consumeSpaces(s))
+    if (resPN === null) return [paramL, s]
+    paramL.push(resPN[0])
+    s = resPN[1]
   }
 }
 
@@ -343,7 +347,12 @@ let procedure = function lambda (params, body, env) {
     let lEnv = {}
     params.forEach(function (k, i) { lEnv[k] = args[i] })
     let procEnv = createScope(lEnv, env)
-    return parseEval(body, procEnv)[0]
+    let result = parseEval(body, procEnv)
+    if (result === null) return null
+    if (result[0].length === 2) {
+      if (result[0][1] === '') return result[0][0]
+    }
+    return result[0]
   }
 }
 
@@ -418,7 +427,11 @@ function parseEval (s, env) {
     return resEP
   }
   if (s[0] === ')') return [currVal, s]
-  if (s.startsWith('quote ')) return extractExp(s.slice(6).trimStart(), env)
+  if (s.startsWith('quote ')) {
+    let resEE = extractExp(s.slice(6).trimStart(), env)
+    if (resEE[0].startsWith('(')) resEE[0] = tokenize(resEE[0])
+    return [resEE[0], resEE[1].slice(1)]
+  }
   if (s.startsWith('define ')) return defineOp(s, env)
   if (s.startsWith('if ')) return ifOp(s, env)
   if (s.startsWith('lambda ')) {
@@ -429,5 +442,8 @@ function parseEval (s, env) {
   } else return expressionParser('(' + s, env)
 }
 
+function tokenize (s) {
+  return paramList(s)[0]
+}
 exports.parseEval = parseEval
 exports.environment = Environment
