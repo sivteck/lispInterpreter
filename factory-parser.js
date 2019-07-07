@@ -64,42 +64,42 @@ let Environment = {
   },
   find (k) {
     if (k in this.globalEnv) return this.globalEnv[k]
-    else return null
+    return null
   }
 }
 
 function isSigned (inp) {
   if (!(inp[0] === '-' || inp[0] === '+')) return null
-  else return [inp[0], inp.slice(1)]
+  return [inp[0], inp.slice(1)]
 }
 
 function isNegative (inp) {
   if (!(inp[0] === '-')) return null
-  else return [inp[0], inp.slice(1)]
+  return [inp[0], inp.slice(1)]
 }
 
 function isDigit (inp) {
   if (inp[0] === undefined) return null
   let codeC = inp[0].charCodeAt()
   if (!((codeC >= 48) && (codeC <= 57))) return null
-  else return [inp[0], inp.slice(1)]
+  return [inp[0], inp.slice(1)]
 }
 
 function isDecimalPoint (inp) {
   if (inp[0] === undefined) return null
   let codeC = inp[0]
   if (!(codeC === '.')) return null
-  else return [codeC, inp.slice(1)]
+  return [codeC, inp.slice(1)]
 }
 
 function isExponential (inp) {
   if (!(inp[0] === 'E' || inp[0] === 'e')) return null
-  else return [inp[0], inp.slice(1)]
+  return [inp[0], inp.slice(1)]
 }
 
 function isZero (inp) {
   if (!(inp[0] === '0')) return null
-  else return [inp[0], inp.slice(1)]
+  return [inp[0], inp.slice(1)]
 }
 
 const returnsNull = (s) => null
@@ -217,7 +217,7 @@ function parseSymbol (s, env, set = 0) {
   let fromScope = env.find(resSymbol)
   if ((fromScope !== null) && set !== 1) resSymbol = fromScope
   if (resSymbol.length !== 0 || typeof resSymbol === 'function') return [resSymbol, remS]
-  else return null
+  return null
 }
 
 function atomize (s, env) {
@@ -445,5 +445,6 @@ function parseEval (s, env) {
 function tokenize (s) {
   return paramList(s)[0]
 }
+
 exports.parseEval = parseEval
 exports.environment = Environment
